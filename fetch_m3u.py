@@ -1,7 +1,6 @@
 import urllib.request
 import sys
 import os
-import re
 
 SOURCE_URL = "https://huangsuming.github.io/iptv/list/tvlist.txt"
 OUTPUT_FILE = "output/iptv.m3u"
@@ -15,7 +14,6 @@ def is_m3u(text):
     return text.startswith("#EXTM3U") or "#EXTINF" in text
 
 def convert_txt_to_m3u(text):
-    """兜底转换：如果源不再是 M3U，尝试将每行 名称,链接 转为 M3U 格式"""
     lines = ["#EXTM3U"]
     for line in text.splitlines():
         line = line.strip()
@@ -27,10 +25,32 @@ def convert_txt_to_m3u(text):
             lines.append(url.strip())
     return "\n".join(lines)
 
+# CCTV-17 的 5 个备用地址（按你提供的顺序）
+CCTV17_URLS = [
+    "http://39.135.140.104:6610/PLTV/88888888/224/3221225909/1/index.m3u8?fmt=ts2hls",
+    "http://39.135.140.104:6610/PLTV/88888888/224/3221225907/1/index.m3u8?fmt=ts2hls",
+    "http://39.135.140.104:6610/PLTV/88888888/224/3221226270/1/index.m3u8?fmt=ts2hls",
+    "http://39.135.140.104:6610/PLTV/88888888/224/3221225908/1/index.m3u8?fmt=ts2hls",
+    "http://39.135.140.104:6610/PLTV/88888888/224/3221225910/1/index.m3u8?fmt=ts2hls",
+]
+
+# 台湾频道关键词（命中即删除）
+TW_KEYWORDS = [
+    "台湾", "中天", "东森", "三立", "TVBS", "民视", "台视", "华视",
+    "中视", "公视", "八大", "非凡", "年代", "壹电视", "寰宇",
+    "龙华", "靖天", "爱尔达", "MOMO", "客家电视台", "原住民族电视台",
+]
+
 def filter_m3u(content):
-    """按规则过滤 M3U 频道：
-       保留 CCTV（不含4K/8K）、所有卫视、所有江西频道。
-       其余（非江西的地方市/县台）删除。
+    """
+    过滤规则（按优先级）：
+    1. CCTV-17 → 替换为你给的 5 个备用地址，名称统一为 CCTV17
+    2. CCTV-4 → 只保留名称含“中文”的版本
+    3. 台湾频道 → 删除
+    4. 普通 CCTV（非 4K/8K）→ 保留
+    5. 所有卫视 → 保留
+    6. 所有江西频道 → 保留
+    7. 其余（非江西地方台等）→ 删除
     """
     lines = content.splitlines()
     output = []
@@ -40,7 +60,7 @@ def filter_m3u(content):
     while i < len(lines):
         line = lines[i]
 
-        # 处理文件头
+        # 文件头
         if line.startswith('#EXTM3U'):
             if not header_written:
                 output.append(line)
@@ -48,40 +68,58 @@ def filter_m3u(content):
             i += 1
             continue
 
-        # 处理频道块
+        # 频道块开始
         if line.startswith('#EXTINF'):
-            # 提取频道名：最后一个逗号后的内容
             name = line.rsplit(',', 1)[-1].strip()
             upper_name = name.upper()
+            # 归一化：去掉横杠和空格，便于匹配 CCTV-17 / CCTV17 / CCTV 17
+            normalized = upper_name.replace('-', '').replace(' ', '')
+            # 属性部分（保留 tvg-logo、group-title 等）
+            attr_part = line.rsplit(',', 1)[0] if ',' in line else line
 
-            keep = False
-            # 规则1：CCTV 频道，但排除 4K / 8K
+            # 收集整个频道块（#EXTINF 行 + 后续 URL / #EXTVLCOPT 等行）
+            block_lines = [line]
+            i += 1
+            while i < len(lines) and not lines[i].startswith('#EXTINF') and not lines[i].startswith('#EXTM3U'):
+                block_lines.append(lines[i])
+                i += 1
+
+            # 规则 1：CCTV-17 替换为 5 个备用地址
+            if 'CCTV17' in normalized:
+                for url in CCTV17_URLS:
+                    output.append(f'{attr_part},CCTV17')
+                    output.append(url)
+                continue
+
+            # 规则 2：CCTV-4 只保留“中文”版本（先排除 4K/8K）
+            if 'CCTV4' in normalized and '4K' not in normalized and '8K' not in normalized:
+                if '中文' in name:
+                    output.extend(block_lines)
+                continue
+
+            # 规则 3：删除台湾频道
+            if any(kw in name for kw in TW_KEYWORDS):
+                continue
+
+            # 规则 4：普通 CCTV（非 4K/8K）
             if 'CCTV' in upper_name:
                 if '4K' not in upper_name and '8K' not in upper_name:
-                    keep = True
-            # 规则2：所有卫视
-            elif '卫视' in name:
-                keep = True
-            # 规则3：所有江西频道
-            elif '江西' in name:
-                keep = True
+                    output.extend(block_lines)
+                continue
 
-            if keep:
-                # 输出当前 #EXTINF 行
-                output.append(line)
-                i += 1
-                # 输出后续非 #EXTINF / #EXTM3U 的行（通常是 URL 或 #EXTVLCOPT 等）
-                while i < len(lines) and not lines[i].startswith('#EXTINF') and not lines[i].startswith('#EXTM3U'):
-                    output.append(lines[i])
-                    i += 1
-            else:
-                # 跳过整个频道块
-                i += 1
-                while i < len(lines) and not lines[i].startswith('#EXTINF') and not lines[i].startswith('#EXTM3U'):
-                    i += 1
+            # 规则 5：所有卫视
+            if '卫视' in name:
+                output.extend(block_lines)
+                continue
+
+            # 规则 6：所有江西频道
+            if '江西' in name:
+                output.extend(block_lines)
+                continue
+
+            # 其余删除
             continue
 
-        # 其他行（如空行）直接跳过
         i += 1
 
     return '\n'.join(output)
