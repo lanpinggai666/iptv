@@ -43,8 +43,8 @@ CCTV17_URLS = [
 # 4 条源的显示名，刻意错开，避免播放器按基础名合并
 CCTV17_NAMES = ["CCTV17主源", "CCTV17备1", "CCTV17备2", "CCTV17备3"]
 
-# 台标就用 .cn
-CCTV17_LOGO = "https://live.fanmingming.cn/tv/CCTV17.png"
+# 台标改成与其他频道一致的 suxiaoming 台标库
+CCTV17_LOGO = "https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV17.png"
 
 TW_KEYWORDS = [
     "台湾", "中天", "东森", "三立", "TVBS", "民视", "台视", "华视",
