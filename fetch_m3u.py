@@ -25,7 +25,12 @@ def convert_txt_to_m3u(text):
             lines.append(url.strip())
     return "\n".join(lines)
 
-# CCTV-17 的 5 个备用地址（按你提供的顺序）
+def normalize_name(name):
+    n = name.upper()
+    for ch in ['-', '—', '－', '–', '_', '.', '·', ' ', '\u3000']:
+        n = n.replace(ch, '')
+    return n
+
 CCTV17_URLS = [
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225909/1/index.m3u8?fmt=ts2hls",
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225907/1/index.m3u8?fmt=ts2hls",
@@ -34,33 +39,36 @@ CCTV17_URLS = [
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225910/1/index.m3u8?fmt=ts2hls",
 ]
 
-# 台湾频道关键词（命中即删除）
 TW_KEYWORDS = [
     "台湾", "中天", "东森", "三立", "TVBS", "民视", "台视", "华视",
     "中视", "公视", "八大", "非凡", "年代", "壹电视", "寰宇",
     "龙华", "靖天", "爱尔达", "MOMO", "客家电视台", "原住民族电视台",
 ]
 
+def build_cctv17_block():
+    """
+    生成 CCTV17 的 5 个源。
+    每个源前加 #EXTVLCOPT:network-caching=1000（1秒网络缓冲），
+    可减少因网络抖动导致的音画不同步。VLC 系播放器会识别，其他播放器会忽略该标签但不报错。
+    频道名带编号（CCTV17-1 ~ CCTV17-5），方便在播放器里逐个测试哪个最流畅。
+    """
+    block = []
+    for idx, url in enumerate(CCTV17_URLS, start=1):
+        block.append(f'#EXTINF:-1 group-title="央视",CCTV17-{idx}')
+        block.append('#EXTVLCOPT:network-caching=1000')
+        block.append(url)
+    return block
+
 def filter_m3u(content):
-    """
-    过滤规则（按优先级）：
-    1. CCTV-17 → 替换为你给的 5 个备用地址，名称统一为 CCTV17
-    2. CCTV-4 → 只保留名称含“中文”的版本
-    3. 台湾频道 → 删除
-    4. 普通 CCTV（非 4K/8K）→ 保留
-    5. 所有卫视 → 保留
-    6. 所有江西频道 → 保留
-    7. 其余（非江西地方台等）→ 删除
-    """
     lines = content.splitlines()
     output = []
     i = 0
     header_written = False
+    cctv17_done = False
 
     while i < len(lines):
         line = lines[i]
 
-        # 文件头
         if line.startswith('#EXTM3U'):
             if not header_written:
                 output.append(line)
@@ -68,56 +76,50 @@ def filter_m3u(content):
             i += 1
             continue
 
-        # 频道块开始
         if line.startswith('#EXTINF'):
             name = line.rsplit(',', 1)[-1].strip()
-            upper_name = name.upper()
-            # 归一化：去掉横杠和空格，便于匹配 CCTV-17 / CCTV17 / CCTV 17
-            normalized = upper_name.replace('-', '').replace(' ', '')
-            # 属性部分（保留 tvg-logo、group-title 等）
-            attr_part = line.rsplit(',', 1)[0] if ',' in line else line
+            norm = normalize_name(name)
 
-            # 收集整个频道块（#EXTINF 行 + 后续 URL / #EXTVLCOPT 等行）
             block_lines = [line]
             i += 1
             while i < len(lines) and not lines[i].startswith('#EXTINF') and not lines[i].startswith('#EXTM3U'):
                 block_lines.append(lines[i])
                 i += 1
 
-            # 规则 1：CCTV-17 替换为 5 个备用地址
-            if 'CCTV17' in normalized:
-                for url in CCTV17_URLS:
-                    output.append(f'{attr_part},CCTV17')
-                    output.append(url)
+            # CCTV-17 完全替换
+            if 'CCTV17' in norm:
+                print(f"🗑️ 识别到原 CCTV-17 条目，丢弃：{name}")
+                if not cctv17_done:
+                    output.extend(build_cctv17_block())
+                    cctv17_done = True
                 continue
 
-            # 规则 2：CCTV-4 只保留“中文”版本（先排除 4K/8K）
-            if 'CCTV4' in normalized and '4K' not in normalized and '8K' not in normalized:
+            # CCTV-4 只留中文
+            if 'CCTV4' in norm and '4K' not in norm and '8K' not in norm:
                 if '中文' in name:
                     output.extend(block_lines)
                 continue
 
-            # 规则 3：删除台湾频道
+            # 删台湾
             if any(kw in name for kw in TW_KEYWORDS):
                 continue
 
-            # 规则 4：普通 CCTV（非 4K/8K）
-            if 'CCTV' in upper_name:
-                if '4K' not in upper_name and '8K' not in upper_name:
+            # 普通 CCTV
+            if 'CCTV' in norm:
+                if '4K' not in norm and '8K' not in norm:
                     output.extend(block_lines)
                 continue
 
-            # 规则 5：所有卫视
+            # 卫视
             if '卫视' in name:
                 output.extend(block_lines)
                 continue
 
-            # 规则 6：所有江西频道
+            # 江西
             if '江西' in name:
                 output.extend(block_lines)
                 continue
 
-            # 其余删除
             continue
 
         i += 1
