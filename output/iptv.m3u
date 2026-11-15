@@ -33,13 +33,13 @@ http://hwrr.jx.chinamobile.com:8080/PLTV/88888888/224/3221225639/index.m3u8
 http://hwrr.jx.chinamobile.com:8080/PLTV/88888888/224/3221225641/index.m3u8
 #EXTINF:-1 tvg-name="CCTV16" tvg-logo="https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV16.png" group-title="总台",CCTV16奥林匹克
 http://hwrr.jx.chinamobile.com:8080/PLTV/88888888/224/3221226230/index.m3u8
-#EXTINF:-1 tvg-name="CCTV17主源" tvg-logo="https://live.fanmingming.cn/tv/CCTV17.png" group-title="总台",CCTV17主源
+#EXTINF:-1 tvg-name="CCTV17主源" tvg-logo="https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV17.png" group-title="总台",CCTV17主源
 http://39.135.140.104:6610/PLTV/88888888/224/3221225909/1/index.m3u8?fmt=ts2hls
-#EXTINF:-1 tvg-name="CCTV17备1" tvg-logo="https://live.fanmingming.cn/tv/CCTV17.png" group-title="总台",CCTV17备1
+#EXTINF:-1 tvg-name="CCTV17备1" tvg-logo="https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV17.png" group-title="总台",CCTV17备1
 http://39.135.140.104:6610/PLTV/88888888/224/3221225907/1/index.m3u8?fmt=ts2hls
-#EXTINF:-1 tvg-name="CCTV17备2" tvg-logo="https://live.fanmingming.cn/tv/CCTV17.png" group-title="总台",CCTV17备2
+#EXTINF:-1 tvg-name="CCTV17备2" tvg-logo="https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV17.png" group-title="总台",CCTV17备2
 http://39.135.140.104:6610/PLTV/88888888/224/3221226270/1/index.m3u8?fmt=ts2hls
-#EXTINF:-1 tvg-name="CCTV17备3" tvg-logo="https://live.fanmingming.cn/tv/CCTV17.png" group-title="总台",CCTV17备3
+#EXTINF:-1 tvg-name="CCTV17备3" tvg-logo="https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV17.png" group-title="总台",CCTV17备3
 http://39.135.140.104:6610/PLTV/88888888/224/3221225908/1/index.m3u8?fmt=ts2hls
 #EXTINF:-1 tvg-name="兵器科技" tvg-logo="https://suxiaoming.codeberg.page/iptv/logo/tv/central/CCTV兵器科技.png" group-title="总台",CCTV兵器科技
 http://39.135.140.104:6610/PLTV/88888888/224/3221226321/2/index.m3u8
