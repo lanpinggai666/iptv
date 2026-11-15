@@ -31,14 +31,15 @@ def normalize_name(name):
         n = n.replace(ch, '')
     return n
 
-# 5 个备用地址，脚本只取第一个作为 CCTV17 的主源
+# 只保留前 4 条，第 5 条不要
 CCTV17_URLS = [
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225909/1/index.m3u8?fmt=ts2hls",
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225907/1/index.m3u8?fmt=ts2hls",
     "http://39.135.140.104:6610/PLTV/88888888/224/3221226270/1/index.m3u8?fmt=ts2hls",
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225908/1/index.m3u8?fmt=ts2hls",
-    "http://39.135.140.104:6610/PLTV/88888888/224/3221225910/1/index.m3u8?fmt=ts2hls",
 ]
+
+CCTV17_LOGO = "https://live.fanmingming.cn/tv/CCTV17.png"
 
 TW_KEYWORDS = [
     "台湾", "中天", "东森", "三立", "TVBS", "民视", "台视", "华视",
@@ -48,14 +49,18 @@ TW_KEYWORDS = [
 
 def build_cctv17_block():
     """
-    只生成 1 条 CCTV17，归入“总台”分组。
-    主源用 CCTV17_URLS[0]，其余 4 个留作备用（需要时把索引改成 1~4）。
+    4 条源，名称带 -1 ~ -4 编号，归入“总台”分组，带台标和网络缓冲。
     """
-    return [
-        '#EXTINF:-1 group-title="总台",CCTV17',
-        '#EXTVLCOPT:network-caching=1000',
-        CCTV17_URLS[0],
-    ]
+    block = []
+    for idx, url in enumerate(CCTV17_URLS, start=1):
+        block.append(
+            f'#EXTINF:-1 tvg-name="CCTV17-{idx}" '
+            f'tvg-logo="{CCTV17_LOGO}" '
+            f'group-title="总台",CCTV17-{idx}'
+        )
+        block.append('#EXTVLCOPT:network-caching=1000')
+        block.append(url)
+    return block
 
 def filter_m3u(content):
     lines = content.splitlines()
@@ -84,7 +89,7 @@ def filter_m3u(content):
                 block_lines.append(lines[i])
                 i += 1
 
-            # CCTV-17：丢弃原块，用固定的 1 条“总台 CCTV17”替换
+            # CCTV-17：丢弃原块，用 4 条带编号的“总台 CCTV17”替换
             if 'CCTV17' in norm:
                 print(f"🗑️ 识别到原 CCTV-17 条目，丢弃：{name}")
                 if not cctv17_done:
@@ -122,9 +127,9 @@ def filter_m3u(content):
 
         i += 1
 
-    # 兜底：源里没有 CCTV-17 时，也保证输出 1 条“总台 CCTV17”
+    # 兜底：源里没有 CCTV-17 时也保证输出
     if not cctv17_done:
-        print("ℹ️ 源中未找到原 CCTV-17 条目，主动追加 1 条 CCTV17")
+        print("ℹ️ 源中未找到原 CCTV-17 条目，主动追加 4 条 CCTV17")
         output.extend(build_cctv17_block())
 
     return '\n'.join(output)
