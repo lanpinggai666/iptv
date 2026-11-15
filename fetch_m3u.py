@@ -46,12 +46,6 @@ TW_KEYWORDS = [
 ]
 
 def build_cctv17_block():
-    """
-    生成 CCTV17 的 5 个源。
-    每个源前加 #EXTVLCOPT:network-caching=1000（1秒网络缓冲），
-    可减少因网络抖动导致的音画不同步。VLC 系播放器会识别，其他播放器会忽略该标签但不报错。
-    频道名带编号（CCTV17-1 ~ CCTV17-5），方便在播放器里逐个测试哪个最流畅。
-    """
     block = []
     for idx, url in enumerate(CCTV17_URLS, start=1):
         block.append(f'#EXTINF:-1 group-title="央视",CCTV17-{idx}')
@@ -86,7 +80,6 @@ def filter_m3u(content):
                 block_lines.append(lines[i])
                 i += 1
 
-            # CCTV-17 完全替换
             if 'CCTV17' in norm:
                 print(f"🗑️ 识别到原 CCTV-17 条目，丢弃：{name}")
                 if not cctv17_done:
@@ -94,28 +87,23 @@ def filter_m3u(content):
                     cctv17_done = True
                 continue
 
-            # CCTV-4 只留中文
             if 'CCTV4' in norm and '4K' not in norm and '8K' not in norm:
                 if '中文' in name:
                     output.extend(block_lines)
                 continue
 
-            # 删台湾
             if any(kw in name for kw in TW_KEYWORDS):
                 continue
 
-            # 普通 CCTV
             if 'CCTV' in norm:
                 if '4K' not in norm and '8K' not in norm:
                     output.extend(block_lines)
                 continue
 
-            # 卫视
             if '卫视' in name:
                 output.extend(block_lines)
                 continue
 
-            # 江西
             if '江西' in name:
                 output.extend(block_lines)
                 continue
@@ -123,6 +111,11 @@ def filter_m3u(content):
             continue
 
         i += 1
+
+    # ✅ 关键修复：源里没有 CCTV-17（或名称不匹配）时，主动追加 5 条
+    if not cctv17_done:
+        print("ℹ️ 源中未找到原 CCTV-17 条目，主动追加 5 条 CCTV17")
+        output.extend(build_cctv17_block())
 
     return '\n'.join(output)
 
