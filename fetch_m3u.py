@@ -31,6 +31,7 @@ def normalize_name(name):
         n = n.replace(ch, '')
     return n
 
+# 5 个备用地址，脚本只取第一个作为 CCTV17 的主源
 CCTV17_URLS = [
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225909/1/index.m3u8?fmt=ts2hls",
     "http://39.135.140.104:6610/PLTV/88888888/224/3221225907/1/index.m3u8?fmt=ts2hls",
@@ -46,12 +47,15 @@ TW_KEYWORDS = [
 ]
 
 def build_cctv17_block():
-    block = []
-    for idx, url in enumerate(CCTV17_URLS, start=1):
-        block.append(f'#EXTINF:-1 group-title="央视",CCTV17-{idx}')
-        block.append('#EXTVLCOPT:network-caching=1000')
-        block.append(url)
-    return block
+    """
+    只生成 1 条 CCTV17，归入“总台”分组。
+    主源用 CCTV17_URLS[0]，其余 4 个留作备用（需要时把索引改成 1~4）。
+    """
+    return [
+        '#EXTINF:-1 group-title="总台",CCTV17',
+        '#EXTVLCOPT:network-caching=1000',
+        CCTV17_URLS[0],
+    ]
 
 def filter_m3u(content):
     lines = content.splitlines()
@@ -80,6 +84,7 @@ def filter_m3u(content):
                 block_lines.append(lines[i])
                 i += 1
 
+            # CCTV-17：丢弃原块，用固定的 1 条“总台 CCTV17”替换
             if 'CCTV17' in norm:
                 print(f"🗑️ 识别到原 CCTV-17 条目，丢弃：{name}")
                 if not cctv17_done:
@@ -87,23 +92,28 @@ def filter_m3u(content):
                     cctv17_done = True
                 continue
 
+            # CCTV-4 只留中文
             if 'CCTV4' in norm and '4K' not in norm and '8K' not in norm:
                 if '中文' in name:
                     output.extend(block_lines)
                 continue
 
+            # 删台湾
             if any(kw in name for kw in TW_KEYWORDS):
                 continue
 
+            # 普通 CCTV
             if 'CCTV' in norm:
                 if '4K' not in norm and '8K' not in norm:
                     output.extend(block_lines)
                 continue
 
+            # 卫视
             if '卫视' in name:
                 output.extend(block_lines)
                 continue
 
+            # 江西
             if '江西' in name:
                 output.extend(block_lines)
                 continue
@@ -112,9 +122,9 @@ def filter_m3u(content):
 
         i += 1
 
-    # ✅ 关键修复：源里没有 CCTV-17（或名称不匹配）时，主动追加 5 条
+    # 兜底：源里没有 CCTV-17 时，也保证输出 1 条“总台 CCTV17”
     if not cctv17_done:
-        print("ℹ️ 源中未找到原 CCTV-17 条目，主动追加 5 条 CCTV17")
+        print("ℹ️ 源中未找到原 CCTV-17 条目，主动追加 1 条 CCTV17")
         output.extend(build_cctv17_block())
 
     return '\n'.join(output)
